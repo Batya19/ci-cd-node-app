@@ -132,6 +132,16 @@ describe('DELETE /api/tasks/:id', () => {
     });
 });
 
+describe('GET /health', () => {
+    it('should return health status', async () => {
+        const res = await request(app).get('/health');
+        expect(res.statusCode).toEqual(200);
+        expect(res.body.status).toBe('healthy');
+        expect(res.body.database).toBe('connected');
+        expect(res.body.timestamp).toBeDefined();
+    });
+});
+
 describe('404 handler', () => {
     it('should return 404 for unknown routes', async () => {
         const res = await request(app).get('/unknown-route');

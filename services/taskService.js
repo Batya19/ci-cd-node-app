@@ -1,73 +1,109 @@
-// In-memory data store
-let tasks = [
-    { id: 1, title: 'Learn Node.js', completed: false, createdAt: new Date().toISOString() },
-    { id: 2, title: 'Build REST API', completed: false, createdAt: new Date().toISOString() }
-];
-let nextId = 3;
+const db = require('../config/database');
 
 const getAllTasks = async ({ completed, search }) => {
-    let filteredTasks = [...tasks];
+    let query = 'SELECT * FROM tasks WHERE 1=1';
+    const params = [];
 
     if (completed !== undefined) {
-        const isCompleted = completed === 'true';
-        filteredTasks = filteredTasks.filter(task => task.completed === isCompleted);
+        const isCompleted = completed === 'true' ? 1 : 0;
+        query += ' AND completed = ?';
+        params.push(isCompleted);
     }
 
     if (search) {
-        const searchLower = search.toLowerCase();
-        filteredTasks = filteredTasks.filter(task => 
-            task.title.toLowerCase().includes(searchLower)
-        );
+        query += ' AND LOWER(title) LIKE ?';
+        params.push(`%${search.toLowerCase()}%`);
     }
 
-    return filteredTasks;
+    query += ' ORDER BY createdAt DESC';
+
+    const stmt = db.prepare(query);
+    const rows = stmt.all(...params);
+
+    return rows.map(row => ({
+        id: row.id,
+        title: row.title,
+        completed: row.completed === 1,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt || null
+    }));
 };
 
 const getTaskById = async (id) => {
-    return tasks.find(t => t.id === id);
+    const stmt = db.prepare('SELECT * FROM tasks WHERE id = ?');
+    const row = stmt.get(id);
+
+    if (!row) {
+        return null;
+    }
+
+    return {
+        id: row.id,
+        title: row.title,
+        completed: row.completed === 1,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt || null
+    };
 };
 
 const createTask = async ({ title, completed }) => {
-    const newTask = {
-        id: nextId++,
+    const stmt = db.prepare('INSERT INTO tasks (title, completed, createdAt) VALUES (?, ?, ?)');
+    const now = new Date().toISOString();
+    const result = stmt.run(title.trim(), completed === true ? 1 : 0, now);
+
+    return {
+        id: result.lastInsertRowid,
         title: title.trim(),
         completed: completed === true,
-        createdAt: new Date().toISOString()
+        createdAt: now,
+        updatedAt: null
     };
-
-    tasks.push(newTask);
-    return newTask;
 };
 
 const updateTask = async (id, { title, completed }) => {
-    const taskIndex = tasks.findIndex(t => t.id === id);
-
-    if (taskIndex === -1) {
+    const existingTask = await getTaskById(id);
+    if (!existingTask) {
         return null;
     }
 
-    const task = tasks[taskIndex];
+    const updates = [];
+    const params = [];
 
     if (title !== undefined) {
-        task.title = title.trim();
+        updates.push('title = ?');
+        params.push(title.trim());
     }
 
     if (completed !== undefined) {
-        task.completed = completed;
+        updates.push('completed = ?');
+        params.push(completed === true ? 1 : 0);
     }
 
-    task.updatedAt = new Date().toISOString();
-    return task;
+    if (updates.length === 0) {
+        return existingTask;
+    }
+
+    updates.push('updatedAt = ?');
+    params.push(new Date().toISOString());
+    params.push(id);
+
+    const query = `UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`;
+    const stmt = db.prepare(query);
+    stmt.run(...params);
+
+    return await getTaskById(id);
 };
 
 const deleteTask = async (id) => {
-    const taskIndex = tasks.findIndex(t => t.id === id);
-
-    if (taskIndex === -1) {
+    const task = await getTaskById(id);
+    if (!task) {
         return null;
     }
 
-    return tasks.splice(taskIndex, 1)[0];
+    const stmt = db.prepare('DELETE FROM tasks WHERE id = ?');
+    stmt.run(id);
+
+    return task;
 };
 
 module.exports = {
