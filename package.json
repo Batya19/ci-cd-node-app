@@ -1,13 +1,19 @@
 {
-  "name": "my-node-app",
+  "name": "task-management-api",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A RESTful API for managing tasks built with Node.js and Express",
+  "main": "app.js",
   "scripts": {
     "start": "node app.js",
     "test": "jest"
   },
-  "keywords": [],
+  "keywords": [
+    "rest-api",
+    "express",
+    "nodejs",
+    "task-management",
+    "crud"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
