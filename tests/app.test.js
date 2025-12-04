@@ -68,7 +68,9 @@ describe('POST /api/tasks', () => {
             .send({ completed: false });
         
         expect(res.statusCode).toEqual(400);
-        expect(res.body.error).toContain('Title is required');
+        expect(res.body.errors).toBeDefined();
+        expect(res.body.errors.length).toBeGreaterThan(0);
+        expect(JSON.stringify(res.body.errors)).toContain('Title is required');
     });
 
     it('should return 400 if title is empty', async () => {
